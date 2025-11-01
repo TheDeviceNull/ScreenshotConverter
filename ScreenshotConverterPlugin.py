@@ -1,5 +1,5 @@
 # ScreenshotConverterPlugin.py
-# Version 0.1.11 - Removed event emission
+# Version 0.1.12 - Projection-based rewrite
 # Author: The Device Null
 
 from typing import Any, Literal
@@ -19,7 +19,8 @@ import time
 
 # === Projection ===
 class ScreenshotProjection(Projection[dict[str, Any]]):
-    """Receives 'Screenshot' events from Elite Dangerous."""
+    """Listens specifically for 'Screenshot' events from Elite Dangerous."""
+
     def __init__(self, plugin_ref: "ScreenshotConverterPlugin"):
         super().__init__()
         self.plugin_ref = plugin_ref
@@ -28,11 +29,36 @@ class ScreenshotProjection(Projection[dict[str, Any]]):
         return {"last": None}
 
     def process(self, event: Event) -> list[ProjectedEvent]:
-        self.plugin_ref.handle_screenshot_event(event)
+        """
+        Only handle Screenshot events. All others are ignored safely.
+        """
+        # Some events in Covas:NEXT don't have an 'event' attribute, or it's not a string.
+        if not hasattr(event, "event"):
+            return []
+
+        # Make sure it's the right event type
+        if str(event.event).lower() != "screenshot":
+            return []
+
+        # Double-check expected fields exist (Filename, etc.)
+        content = getattr(event, "content", None)
+        if not content or not isinstance(content, dict) or "Filename" not in content:
+            # Optional: log diagnostic but don’t break Covas:NEXT
+            log("debug", "[ScreenshotConverter] Ignored event: missing Filename or invalid structure")
+            return []
+
+        # Now safe to handle
+        try:
+            self.plugin_ref.handle_screenshot_event(event)
+        except Exception as e:
+            log("error", f"[ScreenshotConverter] Exception in process(): {e}")
+
         return []
 
     def get_event_types(self) -> list[str]:
+        # Still register only for Screenshot events
         return ["Screenshot"]
+
 
 # === Main Plugin ===
 class ScreenshotConverterPlugin(PluginBase):
@@ -162,4 +188,4 @@ class ScreenshotConverterPlugin(PluginBase):
 
         except Exception as e:
             log("error", f"[ScreenshotConverter] Conversion failed: {e}")
-# End of ScreenshotConverterPlugin.py   
+# End of ScreenshotConverterPlugin.py
