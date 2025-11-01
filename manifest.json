@@ -1,0 +1,21 @@
+{
+  "id": "screenshot_converter",
+  "name": "Screenshot Converter",
+  "version": "0.1.0",
+  "author": "The Device Null",
+  "url": "https://github.com/TheDeviceNull",
+  "entrypoint": "ScreenshotConverterPlugin.py",
+  "description": "Automatically converts Elite Dangerous BMP screenshots into PNG or JPG when a Screenshot event is detected.",
+  "requires": [],
+  "category": "tools",
+  "icon": "image",
+  "license": "MIT",
+  "settings": {
+    "target_format": {
+      "type": "select",
+      "label": "Output format",
+      "options": ["png", "jpg"],
+      "default": "png"
+    }
+  }
+}
