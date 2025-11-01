@@ -1,5 +1,5 @@
 # ScreenshotConverterPlugin.py
-# Version 0.1.9 - User-configurable screenshot path
+# Version 0.1.11 - Removed event emission
 # Author: The Device Null
 
 from typing import Any, Literal
@@ -17,27 +17,9 @@ import os
 import threading
 import time
 
-# === Custom Event ===
-@dataclass
-class ScreenshotConvertedEvent(Event):
-    original_path: str
-    new_path: str
-    format: str
-    timestamp: str = field(default_factory=lambda: datetime.now(timezone.utc).isoformat())
-    kind: Literal['tool'] = 'tool'
-    text: list[str] = field(default_factory=list)
-
-    def __post_init__(self):
-        self.text = [f"Screenshot converted to {self.format.upper()}: {self.new_path}"]
-
-    def __str__(self):
-        return self.text[0]
-
-
 # === Projection ===
 class ScreenshotProjection(Projection[dict[str, Any]]):
     """Receives 'Screenshot' events from Elite Dangerous."""
-
     def __init__(self, plugin_ref: "ScreenshotConverterPlugin"):
         super().__init__()
         self.plugin_ref = plugin_ref
@@ -52,15 +34,15 @@ class ScreenshotProjection(Projection[dict[str, Any]]):
     def get_event_types(self) -> list[str]:
         return ["Screenshot"]
 
-
 # === Main Plugin ===
 class ScreenshotConverterPlugin(PluginBase):
     """Converts Elite Dangerous BMP screenshots to PNG/JPG when a Screenshot event occurs."""
 
     def __init__(self, plugin_manifest: PluginManifest):
-        super().__init__(plugin_manifest, event_classes=[ScreenshotConvertedEvent])
+        super().__init__(plugin_manifest)
         self.plugin_helper: PluginHelper | None = None
 
+        # --- Settings ---
         self.settings_config = PluginSettings(
             key="ScreenshotConverterPlugin",
             label="Screenshot Converter",
@@ -121,14 +103,14 @@ class ScreenshotConverterPlugin(PluginBase):
     def handle_screenshot_event(self, event: Event):
         filename = event.content.get("Filename")
         if not filename:
-            # log("warn", "[ScreenshotConverter] Screenshot event missing Filename.")
+        #    log("warn", "[ScreenshotConverter] Screenshot event missing Filename.")
             return
 
-        # Get screenshot directory from user setting
         if not self.plugin_helper:
             log("error", "[ScreenshotConverter] PluginHelper not ready.")
             return
 
+        # --- Get screenshot directory from settings ---
         screenshot_path_setting = self.plugin_helper.get_plugin_setting(
             "ScreenshotConverterPlugin", "settings", "screenshot_path"
         ) or r"%USERPROFILE%\Pictures\Frontier Developments\Elite Dangerous"
@@ -148,7 +130,7 @@ class ScreenshotConverterPlugin(PluginBase):
 
         log("info", f"[ScreenshotConverter] Screenshot detected: {bmp_path}")
 
-        # Launch worker thread for conversion
+        # Launch conversion thread
         threading.Thread(target=self._convert_screenshot, args=(bmp_path,), daemon=True).start()
 
     # === Conversion ===
@@ -166,22 +148,18 @@ class ScreenshotConverterPlugin(PluginBase):
             new_name = f"{system_name}{timestamp}.{target_format}"
             new_path = bmp_path.parent / new_name
 
+            # Open and save image
             with Image.open(bmp_path) as img:
                 if target_format == "jpg":
                     img = img.convert("RGB")
                 img.save(new_path, format=target_format.upper(), quality=90)
 
+            # Remove original BMP
             bmp_path.unlink(missing_ok=True)
-            log("info", f"[ScreenshotConverter] Converted {bmp_path.name} -> {new_path.name}")
 
-            # Emit event for Covas:NEXT
-            ev = ScreenshotConvertedEvent(
-                original_path=str(bmp_path),
-                new_path=str(new_path),
-                format=target_format
-            )
-            helper.emit_event(ev)
-            helper.speak(f"Screenshot converted to {target_format.upper()}.")
+            # Log info (visible in GUI)
+            log("info", f"[ScreenshotConverter] Converted {bmp_path.name} -> {new_path.name}")
 
         except Exception as e:
             log("error", f"[ScreenshotConverter] Conversion failed: {e}")
+# End of ScreenshotConverterPlugin.py   
