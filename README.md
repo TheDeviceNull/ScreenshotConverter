@@ -1,42 +1,52 @@
-# Screenshot Converter Plugin for COVAS:NEXT
+# ScreenshotConverter
 
-**Version:** 0.1.11  
-**Author:** [The Device Null](https://github.com/TheDeviceNull)
+**Version 1.0.0 "SnapDragon"**
 
----
+ScreenshotConverter is a plugin for Covas:NEXT that automatically converts Elite Dangerous BMP screenshots into PNG or JPG format. Designed to run in the background, it seamlessly handles screenshot events without interfering with gameplay.
 
-## 📖 Overview
+## Features
 
-**Screenshot Converter** is a plugin for **COVAS:NEXT** that automatically converts the raw **BMP** screenshots created by *Elite Dangerous* into more convenient **PNG** or **JPG** files.
+- Automatic conversion of BMP screenshots to PNG or JPG.
+- Threaded processing to keep conversions fast and non-blocking.
+- Customizable screenshot folder path.
+- Timestamped filenames preserving system names.
+- Compatible with Covas:NEXT event system.
+- Robust logging for successful conversions and error detection.
 
-When the game triggers a **Screenshot** event, the plugin automatically:
-1. Detects the BMP file saved by the game.
-2. Converts it to the selected image format (PNG or JPG).
-3. Renames it according to the pattern: `<systemName><yyyyMMddHHmmss>.<ext>` (system name extraction may be improved in future versions).
-4. Deletes the original BMP file (to save disk space).
-5. Logs the conversion result in Covas:NEXT (visible in the plugin panel).
+## Installation
 
-> **Note:** The plugin no longer emits a custom event after conversion.
+1. Place the `ScreenshotConverter` plugin folder in your Covas:NEXT plugins directory.
+2. Start Covas:NEXT.
+3. Go to the plugin settings and configure the screenshot folder and output format.
 
----
+## Usage
 
-## ⚙️ Installation
+- Take a screenshot in Elite Dangerous.
+- The plugin automatically detects the screenshot event.
+- The BMP file is converted to the chosen format (PNG or JPG) and saved in the same folder.
+- Original BMP files are deleted after conversion to save space.
+- Logs are available in Covas:NEXT for monitoring conversion status.
 
-1. Download the latest `.zip` release from the [Releases page](https://github.com/TheDeviceNull/ScreenshotConverterPlugin/releases).
-2. Extract the contents of the `.zip` into your **Covas:NEXT plugins folder** (usually located at `C:\Users\<YourUser>\AppData\Roaming\com.covas-next.ui\plugins`).
-3. Launch or restart **Covas:NEXT**.
-4. Open the **Screenshot Converter** plugin settings:
-   - Set the **screenshot folder** to the directory where Elite Dangerous saves screenshots.
-     - Default: `%USERPROFILE%\Pictures\Frontier Developments\Elite Dangerous`
-   - Select the desired **output format**: PNG or JPG.
-5. Make sure **Covas:NEXT** has read and write access to the screenshot folder. On Windows, this may require confirming a Windows Defender or security popup.
+## Configuration
 
----
+| Setting | Description |
+|---------|-------------|
+| Screenshot folder | Directory where Elite Dangerous saves screenshots. |
+| Output format | Choose between PNG and JPG. |
 
-## ⚠️ Important
+## Changelog
 
-- Granting read/write permissions is necessary for the plugin to convert screenshots properly.
-- The plugin currently does **not announce conversions via events**; all messages are visible in the plugin panel log.
-- The filename pattern may not always include the system name; this will be improved in a future version.
+**1.0.0 "SnapDragon"**
+- Stable major release.
+- Fixed event handling and startup logging issues.
+- Improved filename and path handling.
+- Optimized conversion threads.
 
+**Pre-release 0.1.11**
+- Initial automatic BMP to PNG/JPG conversion.
+- Basic settings interface.
+- Pre-release testing version.
 
+## License
+
+MIT License. See `LICENSE` file for details.

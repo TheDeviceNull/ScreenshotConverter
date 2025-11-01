@@ -1,10 +1,10 @@
 # ScreenshotConverterPlugin.py
-# Version 0.1.12 - Projection-based rewrite
+# Version 0.1.15-clean - Fixed startup warnings
 # Author: The Device Null
 
-from typing import Any, Literal
+from typing import Any
 from dataclasses import dataclass, field
-from datetime import datetime, timezone
+from datetime import datetime
 from pathlib import Path
 from lib.PluginHelper import PluginHelper, PluginManifest
 from lib.PluginBase import PluginBase
@@ -15,12 +15,10 @@ from lib.Logger import log
 from PIL import Image
 import os
 import threading
-import time
 
 # === Projection ===
 class ScreenshotProjection(Projection[dict[str, Any]]):
-    """Listens specifically for 'Screenshot' events from Elite Dangerous."""
-
+    """Receives 'Screenshot' events from Elite Dangerous."""
     def __init__(self, plugin_ref: "ScreenshotConverterPlugin"):
         super().__init__()
         self.plugin_ref = plugin_ref
@@ -29,36 +27,11 @@ class ScreenshotProjection(Projection[dict[str, Any]]):
         return {"last": None}
 
     def process(self, event: Event) -> list[ProjectedEvent]:
-        """
-        Only handle Screenshot events. All others are ignored safely.
-        """
-        # Some events in Covas:NEXT don't have an 'event' attribute, or it's not a string.
-        if not hasattr(event, "event"):
-            return []
-
-        # Make sure it's the right event type
-        if str(event.event).lower() != "screenshot":
-            return []
-
-        # Double-check expected fields exist (Filename, etc.)
-        content = getattr(event, "content", None)
-        if not content or not isinstance(content, dict) or "Filename" not in content:
-            # Optional: log diagnostic but don’t break Covas:NEXT
-            log("debug", "[ScreenshotConverter] Ignored event: missing Filename or invalid structure")
-            return []
-
-        # Now safe to handle
-        try:
-            self.plugin_ref.handle_screenshot_event(event)
-        except Exception as e:
-            log("error", f"[ScreenshotConverter] Exception in process(): {e}")
-
+        self.plugin_ref.handle_screenshot_event(event)
         return []
 
     def get_event_types(self) -> list[str]:
-        # Still register only for Screenshot events
         return ["Screenshot"]
-
 
 # === Main Plugin ===
 class ScreenshotConverterPlugin(PluginBase):
@@ -127,9 +100,10 @@ class ScreenshotConverterPlugin(PluginBase):
 
     # === Event Handling ===
     def handle_screenshot_event(self, event: Event):
-        filename = event.content.get("Filename")
+        # Controlla che l'evento abbia davvero il campo 'Filename'
+        filename = getattr(event, "content", {}).get("Filename") if hasattr(event, "content") else None
         if not filename:
-        #    log("warn", "[ScreenshotConverter] Screenshot event missing Filename.")
+            # Ignora eventi senza filename senza loggare warning
             return
 
         if not self.plugin_helper:
@@ -143,10 +117,10 @@ class ScreenshotConverterPlugin(PluginBase):
 
         screenshot_dir = Path(os.path.expandvars(screenshot_path_setting))
 
-        # Remove ED_Pictures from filename if present
+        # Rimuove ED_Pictures se presente
         filename = filename.replace("ED_Pictures\\", "").replace("ED_Pictures/", "")
 
-        # Resolve full path
+        # Risolve percorso completo
         if filename.startswith("\\"):
             bmp_path = screenshot_dir / filename.strip("\\")
         else:
@@ -156,7 +130,7 @@ class ScreenshotConverterPlugin(PluginBase):
 
         log("info", f"[ScreenshotConverter] Screenshot detected: {bmp_path}")
 
-        # Launch conversion thread
+        # Lancia conversione in thread separato
         threading.Thread(target=self._convert_screenshot, args=(bmp_path,), daemon=True).start()
 
     # === Conversion ===
@@ -188,4 +162,3 @@ class ScreenshotConverterPlugin(PluginBase):
 
         except Exception as e:
             log("error", f"[ScreenshotConverter] Conversion failed: {e}")
-# End of ScreenshotConverterPlugin.py
