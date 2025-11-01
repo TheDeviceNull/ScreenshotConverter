@@ -121,7 +121,7 @@ class ScreenshotConverterPlugin(PluginBase):
     def handle_screenshot_event(self, event: Event):
         filename = event.content.get("Filename")
         if not filename:
-            log("warn", "[ScreenshotConverter] Screenshot event missing Filename.")
+            # log("warn", "[ScreenshotConverter] Screenshot event missing Filename.")
             return
 
         # Get screenshot directory from user setting
