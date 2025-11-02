@@ -34,6 +34,15 @@ ScreenshotConverter is a plugin for Covas:NEXT that automatically converts Elite
 | Screenshot folder | Directory where Elite Dangerous saves screenshots. |
 | Output format | Choose between PNG and JPG. |
 
+
+## ⚠️ Important
+
+Make sure that Covas:NEXT has read and write access to your Elite Dangerous screenshot folder.
+
+On Windows, Windows Defender or other security features may block access and show a popup.
+
+Granting permissions is necessary for the plugin to convert screenshots properly
+
 ## Changelog
 
 **1.0.0 "SnapDragon"**
