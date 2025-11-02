@@ -1,5 +1,5 @@
 # ScreenshotConverterPlugin.py
-# Version 1.0.1-hotfix - compatible manifest usage, safe event handling
+# Version 1.0.4 - Fix for ED_Pictures path resolution
 # Author: The Device Null
 
 from typing import Any
@@ -7,7 +7,9 @@ from datetime import datetime
 from pathlib import Path
 from lib.PluginHelper import PluginHelper, PluginManifest
 from lib.PluginBase import PluginBase
-from lib.PluginSettingDefinitions import PluginSettings, SettingsGrid, ParagraphSetting, TextSetting, SelectSetting
+from lib.PluginSettingDefinitions import (
+    PluginSettings, SettingsGrid, ParagraphSetting, TextSetting, SelectSetting
+)
 from lib.Event import Event, ProjectedEvent
 from lib.EventManager import Projection
 from lib.Logger import log
@@ -15,12 +17,11 @@ from PIL import Image
 import os
 import threading
 
+
 # === Projection ===
 class ScreenshotProjection(Projection[dict[str, Any]]):
-    """Receives 'Screenshot' events from Elite Dangerous and forwards relevant ones."""
-
+    """Receives 'Screenshot' events from Elite Dangerous."""
     def __init__(self, plugin_ref: "ScreenshotConverterPlugin"):
-        # don't pass unexpected args to super; framework will handle Projection internals
         super().__init__()
         self.plugin_ref = plugin_ref
 
@@ -28,24 +29,18 @@ class ScreenshotProjection(Projection[dict[str, Any]]):
         return {"last": None}
 
     def process(self, event: Event) -> list[ProjectedEvent]:
-        """
-        Soft/robust filtering:
-        - Only invoke handler when event.content is a dict and contains 'Filename'.
-        - Ignore anything else silently to avoid startup spam and exceptions.
-        """
+        # Only act on real Screenshot events with structured content
+        if not hasattr(event, "content") or not isinstance(event.content, dict):
+            return []
+        if event.content.get("event") != "Screenshot":
+            return []
         try:
-            content = getattr(event, "content", None)
-            if content and isinstance(content, dict) and "Filename" in content:
-                # Safe: content is a dict and has Filename
-                self.plugin_ref.handle_screenshot_event(event)
+            self.plugin_ref.handle_screenshot_event(event)
         except Exception as e:
-            # log but never raise to keep Covas stable
-            log("error", f"[ScreenshotConverter] Unexpected error in projection.process(): {e}")
+            log("error", f"[ScreenshotConverter] Exception in process(): {e}")
         return []
 
     def get_event_types(self) -> list[str]:
-        # Keep the projection registered; framework may match events by name.
-        # Using the same "Screenshot" string used previously by the working plugin.
         return ["Screenshot"]
 
 
@@ -54,7 +49,6 @@ class ScreenshotConverterPlugin(PluginBase):
     """Converts Elite Dangerous BMP screenshots to PNG/JPG when a Screenshot event occurs."""
 
     def __init__(self, plugin_manifest: PluginManifest):
-        # plugin_manifest is provided by Covas; don't try to construct it here
         super().__init__(plugin_manifest)
         self.plugin_helper: PluginHelper | None = None
 
@@ -117,16 +111,9 @@ class ScreenshotConverterPlugin(PluginBase):
 
     # === Event Handling ===
     def handle_screenshot_event(self, event: Event):
-        # Safely extract content and Filename
-        content = getattr(event, "content", None)
-
-        # If content is not a dict, ignore silently (prevents 'str'.get errors)
-        if not isinstance(content, dict):
-            return
-
-        filename = content.get("Filename")
+        filename = event.content.get("Filename") if hasattr(event, "content") else None
         if not filename:
-            # silent ignore for events without Filename (avoids startup spam)
+            log("warn", "[ScreenshotConverter] Screenshot event missing Filename.")
             return
 
         if not self.plugin_helper:
@@ -140,15 +127,16 @@ class ScreenshotConverterPlugin(PluginBase):
 
         screenshot_dir = Path(os.path.expandvars(screenshot_path_setting))
 
-        # Normalize filename removing ED_Pictures prefix if present
-        filename = filename.replace("ED_Pictures\\", "").replace("ED_Pictures/", "")
+        # --- Resolve correct screenshot path ---
+        raw_filename = os.path.expandvars(filename)
+        bmp_path = Path(raw_filename)
 
-        # Resolve full path: if path is absolute, use it; otherwise join with configured folder
-        if filename.startswith("\\") or filename.startswith("/") or (len(filename) > 1 and filename[1] == ':'):
-            bmp_path = Path(filename)
-        else:
-            bmp_path = screenshot_dir / filename
+        # Replace "ED_Pictures" alias with the configured screenshot directory
+        if "ED_Pictures" in raw_filename:
+            relative_name = raw_filename.split("ED_Pictures")[-1].lstrip("\\/")
+            bmp_path = Path(screenshot_dir) / relative_name
 
+        # Normalize the path
         bmp_path = bmp_path.expanduser().resolve()
 
         log("info", f"[ScreenshotConverter] Screenshot detected: {bmp_path}")
@@ -159,18 +147,15 @@ class ScreenshotConverterPlugin(PluginBase):
     # === Conversion ===
     def _convert_screenshot(self, bmp_path: Path):
         try:
-            # Wait briefly up to ~0.5s for the game/FS to flush file (helps avoid transient not-found)
-            for _ in range(5):
-                if bmp_path.exists():
-                    break
-                threading.Event().wait(0.1)
-
             if not bmp_path.exists():
                 log("error", f"[ScreenshotConverter] File not found: {bmp_path}")
                 return
 
             helper = self.plugin_helper
-            target_format = (helper.get_plugin_setting("ScreenshotConverterPlugin", "settings", "target_format") or "png").lower()
+            target_format = (
+                helper.get_plugin_setting("ScreenshotConverterPlugin", "settings", "target_format")
+                or "png"
+            ).lower()
 
             timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
             system_name = bmp_path.stem.split("_")[-1] if "_" in bmp_path.stem else "System"
@@ -178,21 +163,16 @@ class ScreenshotConverterPlugin(PluginBase):
             new_path = bmp_path.parent / new_name
 
             # Open and save image
+            from PIL import Image
             with Image.open(bmp_path) as img:
                 if target_format == "jpg":
                     img = img.convert("RGB")
                 img.save(new_path, format=target_format.upper(), quality=90)
 
-            # Remove original BMP only if the output exists
-            if new_path.exists():
-                try:
-                    bmp_path.unlink(missing_ok=True)
-                except Exception as e:
-                    log("warning", f"[ScreenshotConverter] Could not remove original BMP: {e}")
+            # Remove original BMP
+            bmp_path.unlink(missing_ok=True)
 
-                log("info", f"[ScreenshotConverter] Converted {bmp_path.name} -> {new_path.name}")
-            else:
-                log("error", f"[ScreenshotConverter] Conversion completed but output missing: {new_path}")
+            log("info", f"[ScreenshotConverter] Converted {bmp_path.name} -> {new_path.name}")
 
         except Exception as e:
             log("error", f"[ScreenshotConverter] Conversion failed: {e}")
