@@ -1,6 +1,6 @@
 # ScreenshotConverterPlugin.py
-# Version 1.0.11 - Full Covas:NEXT compliance and stable Event handling - <3 Rude <3
-# Author: The Device Null (revised by GPT-5)
+# Version 1.1.0 - Updated for new PluginHelper API - <3 Rude <3
+# Author: The Device Null
 
 from typing import Any
 from datetime import datetime
@@ -147,18 +147,19 @@ class ScreenshotConverterPlugin(PluginBase):
 
         log("info", f"[ScreenshotConverter] Screenshot detected: {bmp_path}")
 
-        current_system = self._get_current_star_system()
+        current_system = self.get_current_star_system()
         threading.Thread(
-            target=self._convert_screenshot,
+            target=self.convert_screenshot,
             args=(bmp_path, current_system),
             daemon=True
         ).start()
 
-    def _get_current_star_system(self) -> str:
+    def get_current_star_system(self) -> str:
         """Reads the current system name from the Location projection."""
         try:
             if not self.plugin_helper:
                 return "Unknown"
+                
             location_projection = self.plugin_helper.get_projection(Location)
             if location_projection and hasattr(location_projection, "state"):
                 return location_projection.state.get("StarSystem", "Unknown")
@@ -167,11 +168,10 @@ class ScreenshotConverterPlugin(PluginBase):
             log("error", f"[ScreenshotConverter] Error getting current system: {e}")
             return "Unknown"
 
-    def _convert_screenshot(self, bmp_path: Path, current_system: str):
+    def convert_screenshot(self, bmp_path: Path, current_system: str):
         """Converts the screenshot to PNG/JPG and emits conversion log."""
         try:
-            helper = self.plugin_helper
-            if not helper:
+            if not self.plugin_helper:
                 return
 
             if not bmp_path.exists():
@@ -180,7 +180,7 @@ class ScreenshotConverterPlugin(PluginBase):
                 return
 
             target_format = (
-                helper.get_plugin_setting("ScreenshotConverterPlugin", "settings", "target_format") or "png"
+                self.plugin_helper.get_plugin_setting("ScreenshotConverterPlugin", "settings", "target_format") or "png"
             ).lower()
 
             timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
@@ -200,4 +200,3 @@ class ScreenshotConverterPlugin(PluginBase):
         except Exception as e:
             msg = f"Screenshot conversion failed: {e}"
             log("error", f"[ScreenshotConverter] {msg}")
-
