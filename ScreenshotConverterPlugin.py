@@ -5,6 +5,7 @@
 import os
 import threading
 import traceback
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict
@@ -143,12 +144,12 @@ class ScreenshotConverterPlugin(PluginBase):
                 return
                 
             event_type = event.content.get("event")
-#            log("debug", f"[ScreenshotConverter] Event type: {event_type}")
+            log("debug", f"[ScreenshotConverter] Event type: {event_type}")
             
             if event_type != "Screenshot":
                 return
                 
-#            log("debug", f"[ScreenshotConverter] Screenshot event detected: {event.content}")
+            log("debug", f"[ScreenshotConverter] Screenshot event detected: {event.content}")
             
             # Process screenshot in a separate thread to avoid blocking
             thread = threading.Thread(
@@ -223,8 +224,11 @@ class ScreenshotConverterPlugin(PluginBase):
             timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
             system_name = current_system.replace(" ", "_")
             original_name = bmp_path.stem
-            
-            new_name = f"{system_name}_{original_name}_{timestamp}.{target_format}"
+            is_hires = "HighResScreenShot" in original_name
+            if is_hires:
+                new_name = f"{system_name}_HiRes_{timestamp}.{target_format}"
+            else:
+                new_name = f"{system_name}_{timestamp}.{target_format}"
             new_path = bmp_path.parent / new_name
             
             
@@ -236,30 +240,12 @@ class ScreenshotConverterPlugin(PluginBase):
                 
             # Delete original BMP file
             bmp_path.unlink(missing_ok=True)
-            
-            log("info", f"[ScreenshotConverter] Converted {bmp_path.name} to {new_path.name}")
-            
-            # Notify about successful conversion
-            if self.plugin_helper:
-                success_event = PluginEvent("ScreenshotConverted", {
-                    "filename": str(new_path),
-                    "original": str(bmp_path),
-                    "system": current_system,
-                    "format": target_format.upper()
-                })
-                self.plugin_helper.dispatch_event(success_event)
-                
+            log("info", f"[ScreenshotConverter] Converted {bmp_path.name} to {new_path.name}")         
+
         except Exception as e:
             log("error", f"[ScreenshotConverter] Error converting screenshot: {e}")
             log("error", f"[ScreenshotConverter] Traceback: {traceback.format_exc()}")
-            
-            # Notify about conversion error
-            if self.plugin_helper:
-                error_event = PluginEvent("ScreenshotError", {
-                    "message": str(e),
-                    "filename": str(bmp_path) if 'bmp_path' in locals() else "unknown"
-                })
-                self.plugin_helper.dispatch_event(error_event)
+
 
     def get_current_system(self) -> str:
         """Get the current star system name from Location projection"""
