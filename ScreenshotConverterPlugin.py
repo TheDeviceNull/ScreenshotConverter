@@ -144,12 +144,12 @@ class ScreenshotConverterPlugin(PluginBase):
                 return
                 
             event_type = event.content.get("event")
-            log("debug", f"[ScreenshotConverter] Event type: {event_type}")
+#            log("debug", f"[ScreenshotConverter] Event type: {event_type}")
             
             if event_type != "Screenshot":
                 return
                 
-            log("debug", f"[ScreenshotConverter] Screenshot event detected: {event.content}")
+#            log("debug", f"[ScreenshotConverter] Screenshot event detected: {event.content}")
             
             # Process screenshot in a separate thread to avoid blocking
             thread = threading.Thread(
