@@ -1,6 +1,5 @@
 # ScreenshotConverter
 
-**Version 1.0.7 "Mostly Harmless, Definitely Working"**
 
 ScreenshotConverter is a plugin for **Covas:NEXT** that automatically converts **Elite Dangerous** BMP screenshots into PNG or JPG format.  
 It runs quietly in the background, listening for screenshot events, and performs conversions instantly without interrupting your gameplay.
@@ -67,6 +66,11 @@ It runs quietly in the background, listening for screenshot events, and performs
 ---
 
 ## 🧩 Changelog
+
+### **2.0.0 "So Long, and Thanks for All the BMPs” (2025-11-29)**
+- Full Covas:NEXT Plugin System Integration
+- Improved Screenshot Conversion Engine
+- Intelligent Filename Generation
 
 ### **1.0.7 “Mostly Harmless, Definitely Working” (2025-11-08)**
 - Fixed: replaced invalid `get_event_manager()` calls with `_event_manager`.  
